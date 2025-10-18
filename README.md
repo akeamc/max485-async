@@ -1,22 +1,15 @@
-# MAX485 Half-Duplex mode driver
+# max485-async
 
-A simple embedded-hal driver for operating the MAX485 uart to rs485 module in half duplex mode.
+Async driver for the MAX 485 RS-485 transceiver, using embedded-hal-async.
 
 ## License
 
 The code is licensed under either of:
 
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or
-  http://www.apache.org/licenses/LICENSE-2.0)
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
 - MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
 at your option.
-
-## Contributions
-
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in this work by you shall be under the terms and conditions of
-the Apache-2.0 license, without any additional terms or conditions.
 
 ## Additional info
 
