@@ -15,6 +15,7 @@ where
     serial: RIDO,
     pin: REDE,
     delay: DELAY,
+    begun_transmission: bool,
 }
 
 impl<RIDO, REDE, DELAY> Max485<RIDO, REDE, DELAY>
@@ -23,19 +24,52 @@ where
     REDE: OutputPin,
 {
     pub fn new(serial: RIDO, pin: REDE, delay: DELAY) -> Self {
-        Self { serial, pin, delay }
+        Self {
+            serial,
+            pin,
+            delay,
+            begun_transmission: false,
+        }
     }
 
-    pub fn take_peripherals(self) -> (RIDO, REDE) {
-        (self.serial, self.pin)
+    pub fn into_parts(self) -> (RIDO, REDE, DELAY) {
+        (self.serial, self.pin, self.delay)
     }
 
-    /// Provide a configuration function to be applied to the underlying serial port.
-    pub fn reconfig_port<F>(&mut self, config: F)
+    pub fn inner_mut(&mut self) -> &mut RIDO {
+        &mut self.serial
+    }
+
+    /// Begin the transmission by setting the RE/DE pin high. This is called
+    /// automatically before any write operation.
+    pub async fn begin_transmission(&mut self) -> Result<(), <Self as ErrorType>::Error> {
+        if !self.begun_transmission {
+            self.pin.set_high().map_err(Error::Pin)?;
+            self.begun_transmission = true;
+        }
+        Ok(())
+    }
+
+    async fn end_transmission_inner(&mut self) -> Result<(), <Self as ErrorType>::Error>
     where
-        F: Fn(&mut RIDO),
+        DELAY: DelayNs,
     {
-        config(&mut self.serial);
+        if self.begun_transmission {
+            self.delay.delay_us(50).await;
+            self.pin.set_low().map_err(Error::Pin)?;
+            self.begun_transmission = false;
+        }
+        Ok(())
+    }
+
+    /// End the transmission by flushing the serial port and setting the RE/DE
+    /// pin low.
+    pub async fn end_transmission(&mut self) -> Result<(), <Self as ErrorType>::Error>
+    where
+        DELAY: DelayNs,
+    {
+        self.serial.flush().await.map_err(Error::Serial)?;
+        self.end_transmission_inner().await
     }
 }
 
@@ -54,19 +88,14 @@ where
     DELAY: DelayNs,
 {
     async fn write(&mut self, bytes: &[u8]) -> Result<usize, Self::Error> {
-        self.pin.set_high().map_err(Error::Pin)?;
-
-        let n = self.serial.write(bytes).await.map_err(Error::Serial)?;
-        self.serial.flush().await.map_err(Error::Serial)?;
-        self.delay.delay_us(50).await;
-
-        self.pin.set_low().map_err(Error::Pin)?;
-
-        Ok(n)
+        self.begin_transmission().await?;
+        self.serial.write(bytes).await.map_err(Error::Serial)
     }
 
     async fn flush(&mut self) -> Result<(), Self::Error> {
-        self.serial.flush().await.map_err(Error::Serial)
+        self.begin_transmission().await?;
+        self.serial.flush().await.map_err(Error::Serial)?;
+        self.end_transmission_inner().await
     }
 }
 
@@ -74,9 +103,10 @@ impl<RIDO, REDE, DELAY> Read for Max485<RIDO, REDE, DELAY>
 where
     RIDO: Read + Write,
     REDE: OutputPin,
+    DELAY: DelayNs,
 {
     async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        self.pin.set_low().map_err(Error::Pin)?;
+        self.end_transmission_inner().await?;
         self.serial.read(buf).await.map_err(Error::Serial)
     }
 }
@@ -87,7 +117,7 @@ where
     REDE: OutputPin,
 {
     fn read_ready(&mut self) -> Result<bool, Self::Error> {
-        self.serial.read_ready().map_err(Error::Serial)
+        Ok(self.serial.read_ready().map_err(Error::Serial)? && !self.begun_transmission)
     }
 }
 
@@ -111,7 +141,7 @@ pub enum Error<S, P> {
 impl<S, P> Display for Error<S, P>
 where
     S: Display,
-    P: Debug, // embedded_hal::digital::Error only implements debug
+    P: Debug, // embedded_hal::digital::Error only implements Debug
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
