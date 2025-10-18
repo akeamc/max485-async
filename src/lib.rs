@@ -140,3 +140,17 @@ where
         }
     }
 }
+
+#[cfg(feature = "embedded-io-async-06")]
+impl<S, P> embedded_io_async_06::Error for Error<S, P>
+where
+    S: embedded_io_async_06::Error,
+    P: Debug,
+{
+    fn kind(&self) -> embedded_io_async_06::ErrorKind {
+        match self {
+            Error::Serial(s) => s.kind(),
+            Error::Pin(_) => embedded_io_async_06::ErrorKind::Other,
+        }
+    }
+}
