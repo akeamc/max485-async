@@ -1,6 +1,6 @@
 [package]
 name = "max485-async"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Async driver for the MAX 485 RS-485 transceiver, using embedded-hal-async."
 keywords = ["no-std", "driver", "embedded-hal", "rs485", "serial"]
