@@ -1,16 +1,17 @@
 [package]
-name = "max485"
-version = "0.3.0"
-edition = "2021"
+name = "max485-async"
+version = "0.1.0"
+edition = "2024"
 description = "A simple embedded-hal driver for operating the MAX485 uart to rs485 module in half duplex mode."
 keywords = ["no-std", "driver", "embedded-hal", "rs485", "serial"]
 categories = ["embedded", "hardware-support", "no-std"]
-repository = "https://github.com/josfemova/max485"
-documentation = "https://docs.rs/crate/max485/"
+repository = "https://github.com/akeamc/max485-async"
+documentation = "https://docs.rs/crate/max485-async/"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-authors = ["José Morales <josfemova@gmail.com>"]
+authors = ["Åke Amcoff <ake@amcoff.net>"]
 
 [dependencies]
 embedded-hal = "1.0"
-embedded-io-async = "0.6.1"
+embedded-hal-async = "1.0.0"
+embedded-io-async = "0.7.0"
