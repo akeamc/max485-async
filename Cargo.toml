@@ -14,9 +14,4 @@ authors = ["Åke Amcoff <ake@amcoff.net>"]
 [dependencies]
 embedded-hal = "1.0"
 embedded-hal-async = "1.0"
-embedded-io-async = "0.7"
-
-embedded-io-async-06 = { package = "embedded-io-async", version = "0.6", optional = true }
-
-[features]
-embedded-io-async-06 = ["dep:embedded-io-async-06"]
+embedded-io-async = "0.6"
