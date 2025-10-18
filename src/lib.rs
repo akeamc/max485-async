@@ -42,7 +42,7 @@ where
 
     /// Begin the transmission by setting the RE/DE pin high. This is called
     /// automatically before any write operation.
-    pub async fn begin_transmission(&mut self) -> Result<(), <Self as ErrorType>::Error> {
+    pub fn begin_transmission(&mut self) -> Result<(), <Self as ErrorType>::Error> {
         if !self.begun_transmission {
             self.pin.set_high().map_err(Error::Pin)?;
             self.begun_transmission = true;
@@ -55,7 +55,10 @@ where
         DELAY: DelayNs,
     {
         if self.begun_transmission {
-            self.delay.delay_us(50).await;
+            // This delay probaby should be called, but the current combination
+            // of embassy-executor and esp-rtos panics if end_transmission is
+            // cancelled. Try again in a few months!
+            // self.delay.delay_us(100).await;
             self.pin.set_low().map_err(Error::Pin)?;
             self.begun_transmission = false;
         }
@@ -88,12 +91,12 @@ where
     DELAY: DelayNs,
 {
     async fn write(&mut self, bytes: &[u8]) -> Result<usize, Self::Error> {
-        self.begin_transmission().await?;
+        self.begin_transmission()?;
         self.serial.write(bytes).await.map_err(Error::Serial)
     }
 
     async fn flush(&mut self) -> Result<(), Self::Error> {
-        self.begin_transmission().await?;
+        self.begin_transmission()?;
         self.serial.flush().await.map_err(Error::Serial)?;
         self.end_transmission_inner().await
     }
