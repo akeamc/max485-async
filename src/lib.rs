@@ -2,38 +2,35 @@
 
 use core::fmt::{self, Debug, Display};
 use embedded_hal::digital::OutputPin;
-use embedded_hal_async::delay::DelayNs;
 use embedded_io_async::{ErrorType, Read, ReadReady, Write, WriteReady};
 
 /// Asynchronous driver for MAX485 RS-485 transceivers. Requires a serial port,
 /// a RE/DE pin, and a delay provider.
-pub struct Max485<RIDO, REDE, DELAY>
+pub struct Max485<RIDO, REDE>
 where
     RIDO: Read + Write,
     REDE: OutputPin,
 {
     serial: RIDO,
     pin: REDE,
-    delay: DELAY,
     begun_transmission: bool,
 }
 
-impl<RIDO, REDE, DELAY> Max485<RIDO, REDE, DELAY>
+impl<RIDO, REDE> Max485<RIDO, REDE>
 where
     RIDO: Read + Write,
     REDE: OutputPin,
 {
-    pub fn new(serial: RIDO, pin: REDE, delay: DELAY) -> Self {
+    pub fn new(serial: RIDO, pin: REDE) -> Self {
         Self {
             serial,
             pin,
-            delay,
             begun_transmission: false,
         }
     }
 
-    pub fn into_parts(self) -> (RIDO, REDE, DELAY) {
-        (self.serial, self.pin, self.delay)
+    pub fn into_parts(self) -> (RIDO, REDE) {
+        (self.serial, self.pin)
     }
 
     pub fn inner_mut(&mut self) -> &mut RIDO {
@@ -50,15 +47,8 @@ where
         Ok(())
     }
 
-    async fn end_transmission_inner(&mut self) -> Result<(), <Self as ErrorType>::Error>
-    where
-        DELAY: DelayNs,
-    {
+    fn end_transmission_inner(&mut self) -> Result<(), <Self as ErrorType>::Error> {
         if self.begun_transmission {
-            // This delay probaby should be called, but the current combination
-            // of embassy-executor and esp-rtos panics if end_transmission is
-            // cancelled. Try again in a few months!
-            // self.delay.delay_us(100).await;
             self.pin.set_low().map_err(Error::Pin)?;
             self.begun_transmission = false;
         }
@@ -67,16 +57,13 @@ where
 
     /// End the transmission by flushing the serial port and setting the RE/DE
     /// pin low.
-    pub async fn end_transmission(&mut self) -> Result<(), <Self as ErrorType>::Error>
-    where
-        DELAY: DelayNs,
-    {
+    pub async fn end_transmission(&mut self) -> Result<(), <Self as ErrorType>::Error> {
         self.serial.flush().await.map_err(Error::Serial)?;
-        self.end_transmission_inner().await
+        self.end_transmission_inner()
     }
 }
 
-impl<RIDO, REDE, DELAY> ErrorType for Max485<RIDO, REDE, DELAY>
+impl<RIDO, REDE> ErrorType for Max485<RIDO, REDE>
 where
     RIDO: Read + Write,
     REDE: OutputPin,
@@ -84,11 +71,10 @@ where
     type Error = crate::Error<RIDO::Error, REDE::Error>;
 }
 
-impl<RIDO, REDE, DELAY> Write for Max485<RIDO, REDE, DELAY>
+impl<RIDO, REDE> Write for Max485<RIDO, REDE>
 where
     RIDO: Read + Write,
     REDE: OutputPin,
-    DELAY: DelayNs,
 {
     async fn write(&mut self, bytes: &[u8]) -> Result<usize, Self::Error> {
         self.begin_transmission()?;
@@ -98,23 +84,22 @@ where
     async fn flush(&mut self) -> Result<(), Self::Error> {
         self.begin_transmission()?;
         self.serial.flush().await.map_err(Error::Serial)?;
-        self.end_transmission_inner().await
+        self.end_transmission_inner()
     }
 }
 
-impl<RIDO, REDE, DELAY> Read for Max485<RIDO, REDE, DELAY>
+impl<RIDO, REDE> Read for Max485<RIDO, REDE>
 where
     RIDO: Read + Write,
     REDE: OutputPin,
-    DELAY: DelayNs,
 {
     async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        self.end_transmission_inner().await?;
+        self.end_transmission_inner()?;
         self.serial.read(buf).await.map_err(Error::Serial)
     }
 }
 
-impl<RIDO, REDE, DELAY> ReadReady for Max485<RIDO, REDE, DELAY>
+impl<RIDO, REDE> ReadReady for Max485<RIDO, REDE>
 where
     RIDO: Read + Write + ReadReady,
     REDE: OutputPin,
@@ -124,7 +109,7 @@ where
     }
 }
 
-impl<RIDO, REDE, DELAY> WriteReady for Max485<RIDO, REDE, DELAY>
+impl<RIDO, REDE> WriteReady for Max485<RIDO, REDE>
 where
     RIDO: Read + Write + WriteReady,
     REDE: OutputPin,
